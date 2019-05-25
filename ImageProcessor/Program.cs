@@ -17,7 +17,8 @@ namespace ImageProcessor
             Console.WriteLine("Input path:");
             PhotoFolder.Path = Console.ReadLine();
             //folder.CopyPhoto();
-            folder.PhotoMark();
+            //folder.PhotoMark();
+            folder.SortByYear();
             Console.ReadLine();
         }
     }
@@ -53,7 +54,9 @@ namespace ImageProcessor
                     }
                     catch (ArgumentException)//если метаданные отстутсвуют
                     {
-                        var dateCreation = File.GetCreationTime(image);//получение даты создания
+                        //получение даты изменения файла 
+                        //если брать дату иоздания, то при копировании она будет менять на текущую
+                        var dateCreation = File.GetLastWriteTime(image);
                         dateTaken = dateCreation.ToString("yyyy-dd-MM hh-mm-ss");//приведение к единому стилю
                         dateTaken = new string(dateTaken.Where(c => !char.IsControl(c)).ToArray());
                     }
@@ -91,7 +94,7 @@ namespace ImageProcessor
                     }
                     catch (ArgumentException)//если метаданные отстутсвуют
                     {
-                        var dateCreation = File.GetCreationTime(image);//получение даты создания
+                        var dateCreation = File.GetLastWriteTime(image);
                         dateTaken = dateCreation.ToString("yyyy-dd-MM hh-mm-ss");//приведение к единому стилю
                         dateTaken = new string(dateTaken.Where(c => !char.IsControl(c)).ToArray());
                     }
@@ -104,6 +107,46 @@ namespace ImageProcessor
                     var imageMarkedName = "Marked" + imageName;//установление нового имени
                     imageText.Save(System.IO.Path.Combine(NewPath, imageMarkedName));
                     imageText.Dispose();
+                }
+            }
+            else Console.WriteLine("Folder do not exist");
+        }
+        public void SortByYear()
+        {
+            DirectoryInfo dirInfo = new DirectoryInfo(Path);
+            if (Directory.Exists(Path))
+            {
+                var name = new DirectoryInfo(Path).Name;
+                var NewPathName = $"{name}_SortByYear";//имя новой папки
+                var NewPath = $"{Directory.GetParent(Path)}" + $"{NewPathName}";//путь к новой папке
+                Directory.CreateDirectory(NewPath);//создание новой папки
+                foreach (var image in Directory.EnumerateFiles(Path, ".", SearchOption.AllDirectories).
+                    Where(i => i.EndsWith(".jpg") || i.EndsWith(".jpeg") || i.EndsWith(".png") || i.EndsWith(".gif") ||
+                    i.EndsWith(".bmp") || i.EndsWith(".svg")))//сортировка "только файлы изображений"
+                {
+                    var imageName = System.IO.Path.GetFileName(image);//имя с расширением
+                    string dateTaken;//переменная для хранения значения даты создания в строке
+                    Image im = Image.FromFile(image);
+                    try
+                    {
+                        var property = im.GetPropertyItem(0x0132).Value;//получение метаданных о дате съемки
+                        var date = Encoding.UTF8.GetString(property);
+                        dateTaken = date.Remove(4);//вычленение года съемки
+                        //устранение скрытых символов
+                        dateTaken = new string(dateTaken.Where(c => !char.IsControl(c)).ToArray());
+                    }
+                    catch (ArgumentException)//если метаданные отстутсвуют
+                    {
+                        var dateCreation = File.GetLastWriteTime(image);
+                        dateTaken = dateCreation.ToString("yyyy");//вычленение года съемки
+                        dateTaken = new string(dateTaken.Where(c => !char.IsControl(c)).ToArray());
+                    }
+                    DirectoryInfo newDirInfo = new DirectoryInfo(NewPath);
+                    newDirInfo.CreateSubdirectory(dateTaken);//создание подпапки
+                    var sourceFileName = System.IO.Path.Combine(Path, imageName);
+                    var YearFileName = System.IO.Path.Combine(NewPath, dateTaken);//создание имени папки с годом
+                    var destFileName= System.IO.Path.Combine(YearFileName, imageName);
+                    File.Copy(sourceFileName, destFileName);//сортировка файлов по годам
                 }
             }
             else Console.WriteLine("Folder do not exist");
